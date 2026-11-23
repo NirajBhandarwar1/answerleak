@@ -5,9 +5,10 @@ from collections import OrderedDict
 
 def select(tasks, repos=None, exclude=None, limit=0):
     """Tasks of `repos` (all repos if empty) minus `exclude`, in dataset order. With a limit,
-    take tasks round-robin across repos so even a small test run covers many repos."""
+    take tasks round-robin across repos so even a small test run covers many repos.
+    A repo named in `repos` is always scanned, even if it is also in `exclude`."""
     repos = set(repos or [])
-    exclude = set(exclude or [])
+    exclude = set(exclude or []) - repos
     picked = [t for t in tasks if (not repos or t["repo"] in repos) and t["repo"] not in exclude]
     if not limit or limit >= len(picked):
         return picked

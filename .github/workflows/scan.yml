@@ -10,7 +10,7 @@ on:
         required: false
         default: ""
       exclude:
-        description: "Repos to skip, space-separated owner/name"
+        description: "Repos to skip, space-separated owner/name (ignored for repos named above)"
         required: false
         default: "pydata/xarray psf/requests"
       limit:

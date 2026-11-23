@@ -39,6 +39,20 @@ def test_fewer_tasks_than_shards_and_limits():
         plan.matrix(tasks(), shards=300)
 
 
+def test_named_repo_wins_over_exclude():
+    ids = [t["instance_id"] for t in plan.select(tasks(), repos=["b/y"], exclude=["a/x", "b/y"])]
+    assert ids == ["y-0", "y-1", "y-2"]
+
+
+def test_cli_plan_fails_clearly_when_nothing_selected(monkeypatch, tmp_path, capsys):
+    from answerleak import dataset
+    monkeypatch.setattr(dataset, "load_tasks", lambda **kw: tasks())
+    gh = tmp_path / "gh_output"
+    assert cli.main(["plan", "--repos", "no/such", "--github-output", str(gh)]) == 1
+    assert "no tasks selected" in capsys.readouterr().err
+    assert not gh.exists()
+
+
 def test_cli_plan_writes_github_output(monkeypatch, tmp_path, capsys):
     from answerleak import dataset
     monkeypatch.setattr(dataset, "load_tasks", lambda **kw: tasks())

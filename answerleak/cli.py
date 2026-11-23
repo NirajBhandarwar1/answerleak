@@ -50,6 +50,10 @@ def main(argv=None):
         from . import dataset, plan
         kw = {"dataset": a.dataset} if a.dataset else {}
         m = plan.matrix(dataset.load_tasks(**kw), a.repos, a.exclude, a.limit, a.shards)
+        if not m["include"]:
+            print("no tasks selected: check --repos (owner/name, e.g. pydata/xarray) and --exclude",
+                  file=sys.stderr)
+            return 1
         if a.github_output:
             with open(a.github_output, "a", encoding="utf-8") as f:
                 f.write("matrix=%s\n" % plan.to_json(m))
