@@ -1,0 +1,122 @@
+# Scan SWE-bench Verified task images on free GitHub-hosted runners.
+# Start it from the Actions tab ("Run workflow"). Do a small test run first (limit 10).
+name: scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: "Repos to scan, space-separated owner/name (empty = every repo except the exclude list)"
+        required: false
+        default: ""
+      exclude:
+        description: "Repos to skip, space-separated owner/name"
+        required: false
+        default: "pydata/xarray psf/requests"
+      limit:
+        description: "Max number of tasks (0 = all). Use 10 for a test run."
+        required: false
+        default: "10"
+      shards:
+        description: "Number of parallel jobs (free plan runs 20 at a time; max 256)"
+        required: false
+        default: "40"
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: plan
+        env:
+          REPOS: ${{ inputs.repos }}
+          EXCLUDE: ${{ inputs.exclude }}
+          LIMIT: ${{ inputs.limit }}
+          SHARDS: ${{ inputs.shards }}
+        run: |
+          # inputs are passed through env (never pasted into the script) and split on spaces
+          python -m answerleak.cli plan --repos $REPOS --exclude $EXCLUDE \
+            --limit "$LIMIT" --shards "$SHARDS" --github-output "$GITHUB_OUTPUT" > /dev/null
+
+  scan:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      DOCKERHUB_USER: ${{ vars.DOCKERHUB_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space (one unpacked image needs about 7-9 GB)
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift
+          sudo docker image prune -af > /dev/null
+          df -h /
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Log in to Docker Hub (only if a token is configured)
+        run: |
+          if [ -n "$DOCKERHUB_TOKEN" ] && [ -n "$DOCKERHUB_USER" ]; then
+            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
+          else
+            echo "No Docker Hub token configured; pulling anonymously."
+          fi
+      - name: Scan this shard (each image is deleted after its scan)
+        env:
+          IDS: ${{ matrix.ids }}
+        run: |
+          mkdir -p out
+          python -m answerleak.cli scan --ids $IDS --out "out/shard-${{ matrix.shard }}.jsonl"
+          df -h /
+      - name: Upload shard results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.shard }}
+          path: out/
+          retention-days: 30
+          if-no-files-found: warn
+
+  report:
+    needs: scan
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: results-*
+          path: out
+          merge-multiple: true
+      - name: Merge and report
+        run: |
+          cat out/*.jsonl > results.jsonl
+          python -m answerleak.cli report --results results.jsonl --md report.md --csv results.csv > /dev/null
+          # The job summary shows only the counts; the full report (with matched lines) is in the artifact.
+          sed -n '1,/^## LEAK tasks/p' report.md | sed '$d' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: report
+          path: |
+            results.jsonl
+            report.md
+            results.csv
+          retention-days: 30

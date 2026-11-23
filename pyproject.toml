@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "answerleak"
+version = "0.1.0"
+description = "Check whether the fix for a coding-benchmark task is readable inside the task's container."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Niraj Bhandarwar" }]
+dependencies = []
+
+[project.scripts]
+answerleak = "answerleak.cli:main"
+
+[tool.setuptools]
+packages = ["answerleak"]
+
+[tool.setuptools.package-data]
+answerleak = ["probe_inside.py"]
