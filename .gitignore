@@ -1,0 +1,12 @@
+results/
+drafts/
+PLAN.md
+CLAUDE.md
+.cache/
+.pytest_cache/
+__pycache__/
+*.egg-info
+.venv/
+out/
+build/
+dist/
