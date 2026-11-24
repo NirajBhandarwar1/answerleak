@@ -13,6 +13,31 @@ used it.
 This builds on [SWE-bench issue #640](https://github.com/SWE-bench/SWE-bench/issues/640), which reported newer
 package source in the Conda package cache of several official images.
 
+## Results: SWE-bench Verified (all 500 tasks)
+
+Scanned 21–24 Nov 2026 on the official `swebench/sweb.eval.x86_64.*` images (linux/amd64), each result
+pinned to its image digest. The 30 xarray and requests tasks were scanned twice, on a laptop and on
+GitHub-hosted runners, with identical results.
+
+| Repos | Tasks | LEAK | COPY | CLEAN | UNDECIDABLE | ERROR |
+|---|---|---|---|---|---|---|
+| pydata/xarray, psf/requests | 30 | 18 | 9 | 3 | 0 | 0 |
+| the other 10 repos | 470 | 0 | 0 | 468 | 2 | 0 |
+| **all** | **500** | **18** | **9** | **471** | **2** | **0** |
+
+- All 18 LEAK tasks are in xarray (a newer xarray in the Conda package cache) and requests (newer copies
+  of requests, including the copies bundled inside pip). 9 expose gold-patch lines and 14 hidden-test lines.
+- Details were shared on [SWE-bench issue #640](https://github.com/SWE-bench/SWE-bench/issues/640#issuecomment-7103973558).
+- This shows the files are present and readable, not that any agent used them.
+- Context: OpenAI [stopped reporting SWE-bench Verified](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/)
+  in February 2026 for other reasons (flawed tests, training contamination). The benchmark is still used on
+  public leaderboards.
+
+## Project status
+
+Complete. This repo is a finished snapshot and is not actively developed. Support for other benchmarks
+(e.g. Multi-SWE-bench, DeepSWE, Terminal-Bench) was explored but not built.
+
 ## Verdicts
 
 | Verdict | Meaning |
