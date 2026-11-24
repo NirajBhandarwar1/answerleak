@@ -32,6 +32,8 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -54,11 +56,10 @@ jobs:
       fail-fast: false
       max-parallel: 20
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    env:
-      DOCKERHUB_USER: ${{ vars.DOCKERHUB_USER }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Free disk space (one unpacked image needs about 7-9 GB)
         run: |
           df -h /
@@ -70,6 +71,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Log in to Docker Hub (only if a token is configured)
+        env:
+          DOCKERHUB_USER: ${{ vars.DOCKERHUB_USER }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           if [ -n "$DOCKERHUB_TOKEN" ] && [ -n "$DOCKERHUB_USER" ]; then
             echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
@@ -89,7 +93,7 @@ jobs:
         with:
           name: results-${{ matrix.shard }}
           path: out/
-          retention-days: 30
+          retention-days: 1
           if-no-files-found: warn
 
   report:
@@ -98,6 +102,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -110,7 +116,8 @@ jobs:
         run: |
           cat out/*.jsonl > results.jsonl
           python -m answerleak.cli report --results results.jsonl --md report.md --csv results.csv > /dev/null
-          # The job summary shows only the counts; the full report (with matched lines) is in the artifact.
+          # The job summary shows only the counts; the full report (with matched lines) is in the
+          # artifact, kept for 1 day: download it, then delete the run if it should not stay public.
           sed -n '1,/^## LEAK tasks/p' report.md | sed '$d' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
@@ -119,4 +126,4 @@ jobs:
             results.jsonl
             report.md
             results.csv
-          retention-days: 30
+          retention-days: 1

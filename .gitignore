@@ -8,5 +8,6 @@ __pycache__/
 *.egg-info
 .venv/
 out/
+*.zip
 build/
 dist/
